@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"sort"
-	"strings"
 	"time"
 )
 
@@ -14,11 +13,19 @@ const (
 	green   = 32
 	yellow  = 33
 	blue    = 34
+	grey    = 90
+
+	prefixDebug  = "-"
+	prefixInfo   = "-"
+	prefixWarn   = "x"
+	prefixErr    = "X"
+	prefixStream = "$"
 )
 
 var (
 	baseTimestamp time.Time
 	isTerminal    bool
+	prefix        string
 )
 
 func init() {
@@ -46,7 +53,7 @@ func (f *TextFormatter) Format(entry *Entry) ([]byte, error) {
 
 	b := &bytes.Buffer{}
 
-	prefixFieldClashes(entry)
+	//prefixFieldClashes(entry)
 
 	isColored := (f.ForceColors || isTerminal) && !f.DisableColors
 
@@ -66,19 +73,27 @@ func (f *TextFormatter) Format(entry *Entry) ([]byte, error) {
 }
 
 func printColored(b *bytes.Buffer, entry *Entry, keys []string) {
-	var levelColor int
+	var (
+		levelColor int
+		p          string
+	)
 	switch entry.Level {
 	case WarnLevel:
 		levelColor = yellow
+		p = prefixWarn
+	case DebugLevel:
+		levelColor = grey
+		p = prefixDebug
 	case ErrorLevel, FatalLevel, PanicLevel:
 		levelColor = red
+		p = prefixErr
 	default:
 		levelColor = blue
+		p = prefixInfo
 	}
 
-	levelText := strings.ToUpper(entry.Level.String())[0:4]
+	fmt.Fprintf(b, "\x1b[%dm[%s]\x1b[0m\t%-44s ", levelColor, p, entry.Message)
 
-	fmt.Fprintf(b, "\x1b[%dm%s\x1b[0m[%04d] %-44s ", levelColor, levelText, miniTS(), entry.Message)
 	for _, k := range keys {
 		v := entry.Data[k]
 		fmt.Fprintf(b, " \x1b[%dm%s\x1b[0m=%v", levelColor, k, v)
@@ -93,3 +108,4 @@ func (f *TextFormatter) appendKeyValue(b *bytes.Buffer, key, value interface{}) 
 		fmt.Fprintf(b, "%v=%v ", key, value)
 	}
 }
+
